@@ -1,0 +1,102 @@
+<!--  
+This takes the URL query string, and then generates the QR Code.
+The QR Code is then displayed on the page.
+The QR Code is generated using the QRCode.js library.
+The QR Code is displayed using the jQuery.qrcode.js library. 
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Code Generator</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.qrcode/1.0/jquery.qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+</head>
+<body>
+    <div>
+        <label for="otp">OTP Seed:</label>
+        <input type="text" id="otp" name="otp" placeholder="OTP">
+    </div>
+    <div>
+        <label for="appName">App Name:</label>
+        <input type="text" id="appName" name="appName" placeholder="App Name">
+    </div>
+    <div id="qrcode"></div>
+
+    <script>
+        // Function to get query parameters from the URL
+        function getQueryParams() {
+            const params = {};
+            const queryString = window.location.search.substring(1);
+            const regex = /([^&=]+)=([^&]*)/g;
+            let m;
+            while (m = regex.exec(queryString)) {
+                params[decodeURIComponent(m[1])] = decodeURIComponent(m[2]);
+            }
+            return params;
+        }
+
+        // Function to update the URL with new query parameters
+        function updateUrlParams(params) {
+            const newUrl = window.location.pathname + '?' + new URLSearchParams(params).toString();
+            window.history.replaceState({}, '', newUrl);
+        }
+
+        // Function to generate OTP QR code
+        function generateOtpQrCode() {
+            const params = getQueryParams();
+            if (params.otp) {
+                const appName = params.appName || 'Example';
+                const otpUrl = `otpauth://totp/${appName}:${params.otp}?secret=${params.otp}&issuer=${appName}`;
+                
+                // Clear previous QR code
+                $('#qrcode').empty();
+                
+                // Generate QR code
+                $('#qrcode').qrcode({
+                    text: otpUrl,
+                    width: 128,
+                    height: 128
+                });
+            } else {
+                $('#qrcode').empty();
+            }
+        }
+
+        // Function to set input values from URL parameters
+        function setInputValuesFromUrl() {
+            const params = getQueryParams();
+            $('#otp').val(params.otp || '');
+            $('#appName').val(params.appName || '');
+        }
+
+        // Event listeners for input fields to update URL and regenerate QR code
+        $('#otp').on('input', function() {
+            const params = getQueryParams();
+            params.otp = $(this).val();
+            updateUrlParams(params);
+            generateOtpQrCode();
+        });
+
+        $('#appName').on('input', function() {
+            const params = getQueryParams();
+            params.appName = $(this).val();
+            updateUrlParams(params);
+            generateOtpQrCode();
+        });
+
+        // Call the function to set input values and generate the QR code initially
+        setInputValuesFromUrl();
+        generateOtpQrCode();
+
+        // Update input values and QR code when the URL changes
+        window.addEventListener('hashchange', function() {
+            setInputValuesFromUrl();
+            generateOtpQrCode();
+        });
+    </script>
+</body>
+</html>
