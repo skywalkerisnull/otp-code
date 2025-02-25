@@ -54,7 +54,7 @@
             if (params.otp) {
                 const accountName = params.accountName || '';
                 const appName = params.appName || '';
-                const otpUrl = `otpauth://totp/${encodeURIComponent(accountName)}?secret=${params.otp}&issuer=${encodeURIComponent(appName)}`;
+                const otpUrl = `otpauth://totp/${encodeURIComponent(accountName).replace(/\+/g, '%20')}?secret=${params.otp}&issuer=${encodeURIComponent(appName).replace(/\+/g, '%20')}`;
                 
                 // Clear previous QR code
                 $('#qrcode').empty();
