@@ -54,7 +54,7 @@
             if (params.otp) {
                 const accountName = params.accountName || '';
                 const appName = params.appName || '';
-                const otpUrl = `otpauth://totp/${accountName}?secret=${params.otp}&issuer=${appName}`;
+                const otpUrl = `otpauth://totp/${encodeURIComponent(accountName)}?secret=${params.otp}&issuer=${encodeURIComponent(appName)}`;
                 
                 // Clear previous QR code
                 $('#qrcode').empty();
@@ -62,8 +62,8 @@
                 // Generate QR code
                 $('#qrcode').qrcode({
                     text: otpUrl,
-                    width: 128,
-                    height: 128
+                    width: 256,
+                    height: 256
                 });
             } else {
                 $('#qrcode').empty();
