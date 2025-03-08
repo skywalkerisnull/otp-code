@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Code Generator</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.qrcode/1.0/jquery.qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+</head>
+<body>
+    <div id="inputFields">
+        <div>
+            <label for="otp">OTP Seed:</label>
+            <input type="text" id="otp" name="otp" placeholder="OTP Seed">
+        </div>
+        <div>
+            <label for="accountName">Account Name:</label>
+            <input type="text" id="accountName" name="accountName" placeholder="Account Name">
+        </div>
+        <div>
+            <label for="appName">App Name:</label>
+            <input type="text" id="appName" name="appName" placeholder="App Name">
+        </div>
+    </div>
+    <div id="toggleContainer">
+        <label for="toggleCheckbox">Hide Input Fields:</label>
+        <input type="checkbox" id="toggleCheckbox">
+    </div>
+    <div id="qrcode"></div>
+
+    <script>
+        // Function to get query parameters from the URL
+        function getQueryParams() {
+            const params = {};
+            const queryString = window.location.search.substring(1);
+            const regex = /([^&=]+)=([^&]*)/g;
+            let m;
+            while (m = regex.exec(queryString)) {
+                params[decodeURIComponent(m[1])] = decodeURIComponent(m[2]);
+            }
+            return params;
+        }
+
+        // Function to update the URL with new query parameters
+        function updateUrlParams(params) {
+            const encodedParams = {};
+            for (const key in params) {
+                encodedParams[encodeURIComponent(key)] = encodeURIComponent(params[key]);
+            }
+            const newUrl = window.location.pathname + '?' + new URLSearchParams(encodedParams).toString();
+            window.history.replaceState({}, '', newUrl);
+        }
+
+        // Function to generate OTP QR code
+        function generateOtpQrCode() {
+            const params = getQueryParams();
+            if (params.otp) {
+                const accountName = decodeURIComponent(params.accountName || '');
+                const appName = decodeURIComponent(params.appName || '');
+                const otpUrl = `otpauth://totp/${accountName}?secret=${params.otp}&issuer=${appName}`;
+            
+                // Clear previous QR code
+                $('#qrcode').empty();
+                
+                // Generate QR code
+                $('#qrcode').qrcode({
+                    text: otpUrl,
+                    width: 256,
+                    height: 256
+                });
+            } else {
+                $('#qrcode').empty();
+            }
+        }
+
+        // Function to set input values from URL parameters
+        function setInputValuesFromUrl() {
+            const params = getQueryParams();
+            $('#otp').val(decodeURIComponent(params.otp || ''));
+            $('#accountName').val(decodeURIComponent(params.accountName || ''));
+            $('#appName').val(decodeURIComponent(params.appName || ''));
+        }
+
+        // Function to toggle input fields visibility
+        function toggleInputFields() {
+            const params = getQueryParams();
+            if (params.hideInputs === 'true') {
+                $('#inputFields').hide();
+                $('#toggleContainer').hide();
+                $('#toggleCheckbox').prop('checked', true);
+            } else {
+                $('#inputFields').show();
+                $('#toggleContainer').show();
+                $('#toggleCheckbox').prop('checked', false);
+            }
+        }
+
+        // Event listeners for input fields to update URL and regenerate QR code
+        $('#otp').on('input', function() {
+            const params = getQueryParams();
+            params.otp = $(this).val();
+            updateUrlParams(params);
+            generateOtpQrCode();
+        });
+
+        $('#accountName').on('input', function() {
+            const params = getQueryParams();
+            params.accountName = $(this).val();
+            updateUrlParams(params);
+            generateOtpQrCode();
+        });
+
+        $('#appName').on('input', function() {
+            const params = getQueryParams();
+            params.appName = $(this).val();
+            updateUrlParams(params);
+            generateOtpQrCode();
+        });
+
+        // Event listener for checkbox to update URL and toggle input fields
+        $('#toggleCheckbox').on('change', function() {
+            const params = getQueryParams();
+            params.hideInputs = $(this).is(':checked');
+            updateUrlParams(params);
+            toggleInputFields();
+        });
+
+        // Event listener for key input to toggle checkbox
+        $(document).on('keydown', function(e) {
+            if (e.ctrlKey && e.key === ' ') {
+                $('#toggleCheckbox').prop('checked', !$('#toggleCheckbox').is(':checked')).trigger('change');
+            }
+        });
+
+        // Call the functions to set input values, generate the QR code, and toggle input fields initially
+        setInputValuesFromUrl();
+        generateOtpQrCode();
+        toggleInputFields();
+
+        // Update input values and QR code when the URL changes
+        window.addEventListener('hashchange', function() {
+            setInputValuesFromUrl();
+            generateOtpQrCode();
+            toggleInputFields();
+        });
+    </script>
+</body>
+</html>

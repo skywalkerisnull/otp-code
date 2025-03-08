@@ -1,0 +1,140 @@
+﻿@page "/"
+@using QRCoder
+@using Microsoft.AspNetCore.WebUtilities
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<PageTitle>QR Code Generator</PageTitle>
+
+<h1>QR Code Generator</h1>
+
+@if (!hideInputs)
+{
+    <div id="inputFields">
+        <div>
+            <label for="otp">OTP Seed:</label>
+            <input type="text" id="otp" @bind="otp" @oninput="OnOtpChanged" placeholder="OTP Seed">
+        </div>
+        <div>
+            <label for="accountName">Account Name:</label>
+            <input type="text" id="accountName" @bind="accountName" @oninput="OnAccountNameChanged" placeholder="Account Name">
+        </div>
+        <div>
+            <label for="appName">App Name:</label>
+            <input type="text" id="appName" @bind="appName" @oninput="OnAppNameChanged" placeholder="App Name">
+        </div>
+    </div>
+}
+<div id="toggleContainer">
+    <label for="toggleCheckbox">Hide Input Fields:</label>
+    <input type="checkbox" id="toggleCheckbox" @bind="hideInputs">
+</div>
+<div>
+    @if (!string.IsNullOrEmpty(qrCodeDataUrl))
+    {
+        <img src="@qrCodeDataUrl" alt="QR Code" />
+    }
+</div>
+
+@code {
+    private string otp;
+    private string accountName;
+    private string appName;
+    private bool hideInputs;
+    private string qrCodeDataUrl;
+
+    protected override void OnInitialized()
+    {
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        var queryParams = QueryHelpers.ParseQuery(uri.Query);
+
+        if (queryParams.TryGetValue("otp", out var otpValue))
+        {
+            otp = otpValue;
+        }
+
+        if (queryParams.TryGetValue("accountName", out var accountNameValue))
+        {
+            accountName = accountNameValue;
+        }
+
+        if (queryParams.TryGetValue("appName", out var appNameValue))
+        {
+            appName = appNameValue;
+        }
+
+        if (queryParams.TryGetValue("hideInputs", out var hideInputsValue))
+        {
+            hideInputs = bool.Parse(hideInputsValue);
+        }
+
+        GenerateQrCode();
+    }
+
+    private void GenerateQrCode()
+    {
+        if (!string.IsNullOrEmpty(otp))
+        {
+            var otpUrl = $"otpauth://totp/{accountName}?secret={otp}&issuer={appName}";
+            using var qrGenerator = new QRCodeGenerator();
+            using var qrCodeData = qrGenerator.CreateQrCode(otpUrl, QRCodeGenerator.ECCLevel.Q);
+            using var qrCode = new PngByteQRCode(qrCodeData);
+            var qrCodeBytes = qrCode.GetGraphic(20);
+            qrCodeDataUrl = $"data:image/png;base64,{Convert.ToBase64String(qrCodeBytes)}";
+        }
+        else
+        {
+            qrCodeDataUrl = null;
+        }
+    }
+
+    private void UpdateUrlParams()
+    {
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        var queryParams = QueryHelpers.ParseQuery(uri.Query).ToDictionary(kvp => kvp.Key, kvp => (object?)kvp.Value.ToString());
+
+        queryParams["otp"] = otp;
+        queryParams["accountName"] = accountName;
+        queryParams["appName"] = appName;
+        queryParams["hideInputs"] = hideInputs.ToString();
+
+        var newUri = Navigation.GetUriWithQueryParameters(queryParams);
+        JS.InvokeVoidAsync("history.pushState", null, "", newUri);
+    }
+
+    private void OnOtpChanged(ChangeEventArgs e)
+    {
+        otp = e.Value.ToString();
+        UpdateUrlParams();
+        GenerateQrCode();
+    }
+
+    private void OnAccountNameChanged(ChangeEventArgs e)
+    {
+        accountName = e.Value.ToString();
+        UpdateUrlParams();
+        GenerateQrCode();
+    }
+
+    private void OnAppNameChanged(ChangeEventArgs e)
+    {
+        appName = e.Value.ToString();
+        UpdateUrlParams();
+        GenerateQrCode();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JS.InvokeVoidAsync("addShortcutListener", DotNetObjectReference.Create(this));
+        }
+    }
+
+    [JSInvokable]
+    public void ToggleHideInputs()
+    {
+        hideInputs = !hideInputs;
+        UpdateUrlParams();
+    }
+}
