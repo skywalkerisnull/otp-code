@@ -30,10 +30,10 @@ jobs:
           dotnet-version: '9'
 
       - name: Restore dependencies
-        run: dotnet restore
+        run: dotnet restore ./qr-code-generator/qr-code-generator.csproj
 
       - name: Build
-        run: dotnet publish -c Release -o build
+        run: dotnet publish ./qr-code-generator/qr-code-generator.csproj -c Release -o build
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
