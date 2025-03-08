@@ -13,15 +13,15 @@
     <div id="inputFields">
         <div>
             <label for="otp">OTP Seed:</label>
-            <input type="text" id="otp" @bind="otp" @oninput="Debounce(OnOtpChanged)" placeholder="OTP Seed">
+            <input type="text" id="otp" @bind="otp" @oninput="@(e => Debounce(OnOtpChanged))" placeholder="OTP Seed">
         </div>
         <div>
             <label for="accountName">Account Name:</label>
-            <input type="text" id="accountName" @bind="accountName" @oninput="Debounce(OnAccountNameChanged)" placeholder="Account Name">
+            <input type="text" id="accountName" @bind="accountName" @oninput="@(e => Debounce(OnAccountNameChanged))" placeholder="Account Name">
         </div>
         <div>
             <label for="appName">App Name:</label>
-            <input type="text" id="appName" @bind="appName" @oninput="Debounce(OnAppNameChanged)" placeholder="App Name">
+            <input type="text" id="appName" @bind="appName" @oninput="@(e => Debounce(OnAppNameChanged))" placeholder="App Name">
         </div>
     </div>
 }
@@ -43,6 +43,7 @@
     private bool hideInputs;
     private string qrCodeDataUrl;
     private Timer debounceTimer;
+    private Timer updateTimer;
 
     protected override void OnInitialized()
     {
@@ -70,6 +71,9 @@
         }
 
         GenerateQrCode();
+
+        // Set up a timer to update the QR code periodically
+        updateTimer = new Timer(UpdateQrCodePeriodically, null, TimeSpan.FromMilliseconds(200), TimeSpan.FromMilliseconds(200));
     }
 
     private void GenerateQrCode()
@@ -101,30 +105,45 @@
 
         var newUri = Navigation.GetUriWithQueryParameters(queryParams);
         JS.InvokeVoidAsync("history.pushState", null, "", newUri);
+        Console.WriteLine($"Updated URL: {newUri}");
     }
 
     private void OnOtpChanged()
     {
+        Console.WriteLine("OTP Changed");
         UpdateUrlParams();
         GenerateQrCode();
     }
 
     private void OnAccountNameChanged()
     {
+        Console.WriteLine("Account Name Changed");
         UpdateUrlParams();
         GenerateQrCode();
     }
 
     private void OnAppNameChanged()
     {
+        Console.WriteLine("App Name Changed");
         UpdateUrlParams();
         GenerateQrCode();
     }
 
-    private void Debounce(Action action)
+    private EventCallback Debounce(Action action)
     {
         debounceTimer?.Dispose();
         debounceTimer = new Timer(_ => InvokeAsync(action), null, 300, Timeout.Infinite);
+        return EventCallback.Empty;
+    }
+
+    private void UpdateQrCodePeriodically(object state)
+    {
+        InvokeAsync(() =>
+        {
+            UpdateUrlParams();
+            GenerateQrCode();
+            StateHasChanged();
+        });
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -140,5 +159,11 @@
     {
         hideInputs = !hideInputs;
         UpdateUrlParams();
+    }
+
+    public void Dispose()
+    {
+        debounceTimer?.Dispose();
+        updateTimer?.Dispose();
     }
 }
