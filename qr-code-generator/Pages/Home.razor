@@ -13,15 +13,15 @@
     <div id="inputFields">
         <div>
             <label for="otp">OTP Seed:</label>
-            <input type="text" id="otp" @bind="otp" @oninput="OnOtpChanged" placeholder="OTP Seed">
+            <input type="text" id="otp" @bind="otp" @oninput="Debounce(OnOtpChanged)" placeholder="OTP Seed">
         </div>
         <div>
             <label for="accountName">Account Name:</label>
-            <input type="text" id="accountName" @bind="accountName" @oninput="OnAccountNameChanged" placeholder="Account Name">
+            <input type="text" id="accountName" @bind="accountName" @oninput="Debounce(OnAccountNameChanged)" placeholder="Account Name">
         </div>
         <div>
             <label for="appName">App Name:</label>
-            <input type="text" id="appName" @bind="appName" @oninput="OnAppNameChanged" placeholder="App Name">
+            <input type="text" id="appName" @bind="appName" @oninput="Debounce(OnAppNameChanged)" placeholder="App Name">
         </div>
     </div>
 }
@@ -42,6 +42,7 @@
     private string appName;
     private bool hideInputs;
     private string qrCodeDataUrl;
+    private Timer debounceTimer;
 
     protected override void OnInitialized()
     {
@@ -102,25 +103,28 @@
         JS.InvokeVoidAsync("history.pushState", null, "", newUri);
     }
 
-    private void OnOtpChanged(ChangeEventArgs e)
+    private void OnOtpChanged()
     {
-        otp = e.Value.ToString();
         UpdateUrlParams();
         GenerateQrCode();
     }
 
-    private void OnAccountNameChanged(ChangeEventArgs e)
+    private void OnAccountNameChanged()
     {
-        accountName = e.Value.ToString();
         UpdateUrlParams();
         GenerateQrCode();
     }
 
-    private void OnAppNameChanged(ChangeEventArgs e)
+    private void OnAppNameChanged()
     {
-        appName = e.Value.ToString();
         UpdateUrlParams();
         GenerateQrCode();
+    }
+
+    private void Debounce(Action action)
+    {
+        debounceTimer?.Dispose();
+        debounceTimer = new Timer(_ => InvokeAsync(action), null, 300, Timeout.Infinite);
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
