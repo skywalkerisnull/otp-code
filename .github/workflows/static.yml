@@ -32,6 +32,9 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore ./qr-code-generator/qr-code-generator.csproj
 
+      - name: Run unit tests
+        run: dotnet test ./qr-code-generator.Tests/qr-code-generator.Tests.csproj --no-build --verbosity normal
+
       - name: Build
         run: dotnet publish ./qr-code-generator/qr-code-generator.csproj -c Release -o build
 
