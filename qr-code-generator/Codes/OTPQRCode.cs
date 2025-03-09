@@ -114,8 +114,8 @@ public class OTPQRCode : BaseQRCode
 
         var typeString = Type.ToString().ToLower();
         var issuerEncoded = Uri.EscapeDataString(Issuer);
-        var accountNameEncoded = accountNameEncode();
-        var secretEncoded = secretEncode();
+        var accountNameEncoded = AccountNameEncode();
+        var secretEncoded = SecretEncode();
         var algorithmString = Algorithm.ToString().ToUpper();
 
         var uriBuilder = new StringBuilder();
@@ -134,8 +134,14 @@ public class OTPQRCode : BaseQRCode
         return uriBuilder.ToString();
     }
 
-    private string accountNameEncode()
+    private string AccountNameEncode()
     {
+        if (string.IsNullOrWhiteSpace(AccountName))
+        {
+            AccountName = string.Empty;
+            return AccountName;
+        }
+
         if (IsValidEmail(AccountName))
         {
             return AccountName;
@@ -146,7 +152,7 @@ public class OTPQRCode : BaseQRCode
         }
     }
 
-    private bool IsValidEmail(string? email)
+    private static bool IsValidEmail(string? email)
     {
         if (string.IsNullOrWhiteSpace(email))
         {
@@ -164,7 +170,7 @@ public class OTPQRCode : BaseQRCode
         }
     }
 
-    private string secretEncode()
+    private string SecretEncode()
     {
         try
         {
