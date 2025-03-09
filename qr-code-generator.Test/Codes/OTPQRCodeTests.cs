@@ -44,4 +44,101 @@ public class OTPQRCodeTests
         // Assert
         Assert.Equal(expectedUri, result);
     }
+
+    [Fact]
+    public void ValidateInput_ShouldThrowException_WhenAccountNameIsNull()
+    {
+        // Arrange
+        var otpQRCode = new OTPQRCode("")
+        {
+            Issuer = "ACME Co",
+            Secret = "HXDMVJECJJWSRB3HWIZR4IFUGFTMXBOZ",
+        };
+
+        // Act & Assert
+        var exception = Assert.Throws<InvalidOperationException>(() => otpQRCode.ValidateInput());
+        Assert.Contains("AccountName is required.", exception.Message);
+    }
+
+    [Fact]
+    public void ValidateInput_ShouldThrowException_WhenIssuerIsNull()
+    {
+        // Arrange
+        var otpQRCode = new OTPQRCode("")
+        {
+            AccountName = "john.doe@email.com",
+            Secret = "HXDMVJECJJWSRB3HWIZR4IFUGFTMXBOZ",
+        };
+
+        // Act & Assert
+        var exception = Assert.Throws<InvalidOperationException>(() => otpQRCode.ValidateInput());
+        Assert.Contains("Issuer is required.", exception.Message);
+    }
+
+    [Fact]
+    public void ValidateInput_ShouldThrowException_WhenSecretIsNull()
+    {
+        // Arrange
+        var otpQRCode = new OTPQRCode("")
+        {
+            Issuer = "ACME Co",
+            AccountName = "john.doe@email.com",
+        };
+
+        // Act & Assert
+        var exception = Assert.Throws<InvalidOperationException>(() => otpQRCode.ValidateInput());
+        Assert.Contains("Secret is required.", exception.Message);
+    }
+
+    [Fact]
+    public void ValidateInput_ShouldThrowException_WhenDigitsIsInvalid()
+    {
+        // Arrange
+        var otpQRCode = new OTPQRCode("")
+        {
+            Issuer = "ACME Co",
+            AccountName = "john.doe@email.com",
+            Secret = "HXDMVJECJJWSRB3HWIZR4IFUGFTMXBOZ",
+            Digits = 0
+        };
+
+        // Act & Assert
+        var exception = Assert.Throws<InvalidOperationException>(() => otpQRCode.ValidateInput());
+        Assert.Contains("Digits must be greater than 0.", exception.Message);
+    }
+
+    [Fact]
+    public void ValidateInput_ShouldThrowException_WhenPeriodIsInvalid()
+    {
+        // Arrange
+        var otpQRCode = new OTPQRCode("")
+        {
+            Issuer = "ACME Co",
+            AccountName = "john.doe@email.com",
+            Secret = "HXDMVJECJJWSRB3HWIZR4IFUGFTMXBOZ",
+            Period = 0
+        };
+
+        // Act & Assert
+        var exception = Assert.Throws<InvalidOperationException>(() => otpQRCode.ValidateInput());
+        Assert.Contains("Period must be greater than 0.", exception.Message);
+    }
+
+    [Fact]
+    public void ValidateInput_ShouldThrowException_WhenCounterIsInvalidForHOTP()
+    {
+        // Arrange
+        var otpQRCode = new OTPQRCode("")
+        {
+            Issuer = "ACME Co",
+            AccountName = "john.doe@email.com",
+            Secret = "HXDMVJECJJWSRB3HWIZR4IFUGFTMXBOZ",
+            Type = OTPType.HOTP,
+            Counter = -1
+        };
+
+        // Act & Assert
+        var exception = Assert.Throws<InvalidOperationException>(() => otpQRCode.ValidateInput());
+        Assert.Contains("Counter must be non-negative for HOTP.", exception.Message);
+    }
 }
