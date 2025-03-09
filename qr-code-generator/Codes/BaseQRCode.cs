@@ -33,6 +33,8 @@ public abstract class BaseQRCode
 
     public abstract bool ValidateInput();
 
+    public abstract IEnumerable<InputDefinition> GetInputDefinitions();
+
     public override string ToString()
     {
         return $"QR Code Type: {GetType().Name}, Name: {Name}, Parameters: {string.Join(", ", Parameters)}";

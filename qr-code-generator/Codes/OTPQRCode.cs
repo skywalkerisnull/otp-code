@@ -134,6 +134,92 @@ public class OTPQRCode : BaseQRCode
         return uriBuilder.ToString();
     }
 
+    public override IEnumerable<InputDefinition> GetInputDefinitions()
+    {
+        return new List<InputDefinition>
+        {
+            new()
+            {
+                Name = nameof(AccountName),
+                Type = InputType.String,
+                Placeholder = "Account Name",
+                Description = "The account name associated with the OTP",
+                ValidationRules = new List<ValidationRule>
+                {
+                    new() { Rule = "required", ErrorMessage = "AccountName is required." }
+                }
+            },
+            new() {
+                Name = nameof(Issuer),
+                Type = InputType.String,
+                Placeholder = "Issuer",
+                Description = "The issuer of the OTP",
+                ValidationRules = new List<ValidationRule>
+                {
+                    new() { Rule = "required", ErrorMessage = "Issuer is required." }
+                }
+            },
+            new()
+            {
+                Name = nameof(Secret),
+                Type = InputType.String,
+                Placeholder = "Secret",
+                Description = "The secret key for the OTP",
+                ValidationRules = new List<ValidationRule>
+                {
+                    new() { Rule = "required", ErrorMessage = "Secret is required." }
+                }
+            },
+            new()
+            {
+                Name = nameof(Type),
+                Type = InputType.Dropdown,
+                Placeholder = "Type",
+                Description = "The type of OTP (TOTP or HOTP)"
+            },
+            new()
+            {
+                Name = nameof(Algorithm),
+                Type = InputType.Dropdown,
+                Placeholder = "Algorithm",
+                Description = "The algorithm used for the OTP"
+            },
+            new()
+            {
+                Name = nameof(Digits),
+                Type = InputType.String,
+                Placeholder = "Digits",
+                Description = "The number of digits in the OTP",
+                ValidationRules = new List<ValidationRule>
+                {
+                    new() { Rule = "range", ErrorMessage = "Digits must be greater than 0." }
+                }
+            },
+            new()
+            {
+                Name = nameof(Period),
+                Type = InputType.String,
+                Placeholder = "Period",
+                Description = "The period for the OTP",
+                ValidationRules = new List<ValidationRule>
+                {
+                    new() { Rule = "range", ErrorMessage = "Period must be greater than 0." }
+                }
+            },
+            new()
+            {
+                Name = nameof(Counter),
+                Type = InputType.String,
+                Placeholder = "Counter",
+                Description = "The counter for HOTP",
+                ValidationRules = new List<ValidationRule>
+                {
+                    new() { Rule = "range", ErrorMessage = "Counter must be non-negative for HOTP." }
+                }
+            }
+        };
+    }
+
     private string AccountNameEncode()
     {
         if (string.IsNullOrWhiteSpace(AccountName))
