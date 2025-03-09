@@ -1,6 +1,8 @@
 ﻿@page "/"
 @using QRCoder
 @using Microsoft.AspNetCore.WebUtilities
+@using System.Reflection
+@using Microsoft.Extensions.Primitives
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
 
@@ -11,18 +13,39 @@
 @if (!hideInputs)
 {
     <div id="inputFields">
-        <div>
-            <label for="otp">OTP Seed:</label>
-            <input type="text" id="otp" @bind="otp" @oninput="@(e => Debounce(OnOtpChanged))" placeholder="OTP Seed">
-        </div>
-        <div>
-            <label for="accountName">Account Name:</label>
-            <input type="text" id="accountName" @bind="accountName" @oninput="@(e => Debounce(OnAccountNameChanged))" placeholder="Account Name">
-        </div>
-        <div>
-            <label for="appName">App Name:</label>
-            <input type="text" id="appName" @bind="appName" @oninput="@(e => Debounce(OnAppNameChanged))" placeholder="App Name">
-        </div>
+        @foreach (var input in inputDefinitions)
+        {
+            <div>
+                <label for="@input.Name">@input.Name:</label>
+                @if (input.Type == InputType.Dropdown)
+                {
+                    <select id="@input.Name" @bind="inputValues[input.Name]" 
+                        @bind:after="() => OnPropertyChanged(input.Name)">
+                        @foreach (var option in input.DropdownOptions)
+                        {
+                            <option value="@option">@option</option>
+                        }
+                    </select>
+                }
+                else
+                {
+                    <input type="@input.Type.ToString().ToLower()" 
+                        id="@input.Name" 
+                        @bind="inputValues[input.Name]" 
+                        @bind:after="() => OnPropertyChanged(input.Name)" 
+                        @oninput="@(e => OnPropertyChanged(input.Name))" placeholder="@input.Placeholder">
+                }
+                @if (input.ValidationRules.Any())
+                {
+                    <div class="validation-rules">
+                        @foreach (var rule in input.ValidationRules)
+                        {
+                            <span>@rule.ErrorMessage</span>
+                        }
+                    </div>
+                }
+            </div>
+        }
     </div>
 }
 <div id="toggleContainer">
@@ -37,32 +60,47 @@
 </div>
 
 @code {
-    private string otp;
-    private string accountName;
-    private string appName;
+    private BaseQRCode qrCode;
+    private List<InputDefinition> inputDefinitions;
     private bool hideInputs;
+    private Dictionary<string, string> inputValues = new Dictionary<string, string>();
     private string qrCodeDataUrl;
-    private Timer debounceTimer;
     private Timer updateTimer;
+    private QRCodeGeneratorService qrCodeGeneratorService = new QRCodeGeneratorService();
+    private bool formSubmitted = false;
 
     protected override void OnInitialized()
     {
         var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
         var queryParams = QueryHelpers.ParseQuery(uri.Query);
 
-        if (queryParams.TryGetValue("otp", out var otpValue))
+        if (!queryParams.TryGetValue("qrcodetype", out var typeValue) || !Enum.TryParse(typeValue, true, out QRCodeType qrCodeType))
         {
-            otp = otpValue;
+            qrCodeType = QRCodeType.OTP; // Default to OTP if type is not specified or invalid
         }
 
-        if (queryParams.TryGetValue("accountName", out var accountNameValue))
+        switch (qrCodeType)
         {
-            accountName = accountNameValue;
+            case QRCodeType.OTP:
+                qrCode = new OTPQRCode(uri.ToString());
+                break;
+            default:
+                throw new NotSupportedException($"QR code type '{qrCodeType}' is not supported.");
         }
 
-        if (queryParams.TryGetValue("appName", out var appNameValue))
+        inputDefinitions = qrCode.GetInputDefinitions().ToList();
+
+        foreach (var input in inputDefinitions)
         {
-            appName = appNameValue;
+            if (queryParams.TryGetValue(input.Name, out var value))
+            {
+                inputValues[input.Name] = value;
+            }
+            else
+            {
+                var propertyValue = GetPropertyValue(input.Name)?.ToString();
+                inputValues[input.Name] = propertyValue ?? string.Empty;
+            }
         }
 
         if (queryParams.TryGetValue("hideInputs", out var hideInputsValue))
@@ -76,16 +114,14 @@
         updateTimer = new Timer(UpdateQrCodePeriodically, null, TimeSpan.FromMilliseconds(200), TimeSpan.FromMilliseconds(200));
     }
 
-    private void GenerateQrCode()
+    private async void GenerateQrCode()
     {
-        if (!string.IsNullOrEmpty(otp))
+        formSubmitted = true;
+
+        if (AllRequiredFieldsFilled() && qrCode.ValidateInput())
         {
-            var otpUrl = $"otpauth://totp/{accountName}?secret={otp}&issuer={appName}";
-            using var qrGenerator = new QRCodeGenerator();
-            using var qrCodeData = qrGenerator.CreateQrCode(otpUrl, QRCodeGenerator.ECCLevel.Q);
-            using var qrCode = new PngByteQRCode(qrCodeData);
-            var qrCodeBytes = qrCode.GetGraphic(20);
-            qrCodeDataUrl = $"data:image/png;base64,{Convert.ToBase64String(qrCodeBytes)}";
+            var otpUrl = qrCode.ToString();
+            qrCodeDataUrl = await qrCodeGeneratorService.GenerateQrCodeAsync(otpUrl);
         }
         else
         {
@@ -93,47 +129,47 @@
         }
     }
 
+    private bool AllRequiredFieldsFilled()
+    {
+        foreach (var input in inputDefinitions)
+        {
+            var value = GetPropertyValue(input.Name);
+            if (input.ValidationRules.Any(rule => rule.Rule == "required") && string.IsNullOrEmpty(value?.ToString()))
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
     private void UpdateUrlParams()
     {
         var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
-        var queryParams = QueryHelpers.ParseQuery(uri.Query).ToDictionary(kvp => kvp.Key, kvp => (object?)kvp.Value.ToString());
+        var queryParams = QueryHelpers.ParseQuery(uri.Query).ToDictionary(kvp => kvp.Key, kvp => kvp.Value.ToString());
 
-        queryParams["otp"] = otp;
-        queryParams["accountName"] = accountName;
-        queryParams["appName"] = appName;
+        // Ensure QRCodeType is the first parameter
+        queryParams["qrcodetype"] = qrCode.GetType().Name;
+
+        foreach (var input in inputDefinitions)
+        {
+            queryParams[input.Name] = GetPropertyValue(input.Name)?.ToString();
+        }
+
         queryParams["hideInputs"] = hideInputs.ToString();
 
-        var newUri = Navigation.GetUriWithQueryParameters(queryParams);
+        var newUri = QueryHelpers.AddQueryString(uri.GetLeftPart(UriPartial.Path), queryParams);
         JS.InvokeVoidAsync("history.pushState", null, "", newUri);
         Console.WriteLine($"Updated URL: {newUri}");
     }
 
-    private void OnOtpChanged()
+    private void OnPropertyChanged(string propertyName)
     {
-        Console.WriteLine("OTP Changed");
-        UpdateUrlParams();
-        GenerateQrCode();
-    }
-
-    private void OnAccountNameChanged()
-    {
-        Console.WriteLine("Account Name Changed");
-        UpdateUrlParams();
-        GenerateQrCode();
-    }
-
-    private void OnAppNameChanged()
-    {
-        Console.WriteLine("App Name Changed");
-        UpdateUrlParams();
-        GenerateQrCode();
-    }
-
-    private EventCallback Debounce(Action action)
-    {
-        debounceTimer?.Dispose();
-        debounceTimer = new Timer(_ => InvokeAsync(action), null, 300, Timeout.Infinite);
-        return EventCallback.Empty;
+        if (inputValues.TryGetValue(propertyName, out var value))
+        {
+            SetPropertyValue(propertyName, value);
+            UpdateUrlParams();
+            GenerateQrCode();
+        }
     }
 
     private void UpdateQrCodePeriodically(object state)
@@ -163,7 +199,52 @@
 
     public void Dispose()
     {
-        debounceTimer?.Dispose();
         updateTimer?.Dispose();
+    }
+
+    private object GetPropertyValue(string propertyName)
+    {
+        var property = qrCode.GetType().GetProperty(propertyName);
+        return property?.GetValue(qrCode);
+    }
+
+    private void SetPropertyValue(string propertyName, object value)
+    {
+        var property = qrCode.GetType().GetProperty(propertyName);
+        if (property != null)
+        {
+            try
+            {
+                if (property.PropertyType.IsEnum && value is string enumStringValue)
+                {
+                    if (Enum.TryParse(property.PropertyType, enumStringValue, true, out var enumValue))
+                    {
+                        property.SetValue(qrCode, enumValue);
+                    }
+                    else
+                    {
+                        throw new ArgumentException($"Invalid value '{enumStringValue}' for enum type '{property.PropertyType.Name}'");
+                    }
+                }
+                else if (value is string stringValue)
+                {
+                    var convertedValue = Convert.ChangeType(stringValue, property.PropertyType);
+                    property.SetValue(qrCode, convertedValue);
+                }
+                else
+                {
+                    throw new ArgumentException($"Value for property '{propertyName}' must be a string.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error setting property '{propertyName}': {ex.Message}");
+                throw new ArgumentException($"Error setting property '{propertyName}': {ex.Message}", ex);
+            }
+        }
+        else
+        {
+            Console.WriteLine($"Property '{propertyName}' not found on type '{qrCode.GetType().Name}'");
+        }
     }
 }
