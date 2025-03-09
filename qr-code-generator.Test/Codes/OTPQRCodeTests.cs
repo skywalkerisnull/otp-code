@@ -1,5 +1,7 @@
 public class OTPQRCodeTests
 {
+    //TODO: Create more sucessful tests for the OTPQRCode class. i.e. I need to do more "success" tests on the string that will be produced by the ToString method.
+    
     [Fact]
     public void ToString_ShouldReturnCorrectUri()
     {
