@@ -79,7 +79,8 @@
 
         foreach (var input in inputDefinitions)
         {
-            inputValues[input.Name] = string.Empty;
+            var propertyValue = GetPropertyValue(input.Name)?.ToString();
+            inputValues[input.Name] = propertyValue ?? string.Empty;
         }
 
         GenerateQrCode();
