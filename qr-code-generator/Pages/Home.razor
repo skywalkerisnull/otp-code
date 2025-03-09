@@ -20,7 +20,7 @@
                 @if (input.Type == InputType.Dropdown)
                 {
                     <select id="@input.Name" @bind="inputValues[input.Name]" 
-                        @bind:after="() => SetPropertyValue(input.Name, inputValues[input.Name])">
+                        @bind:after="() => OnPropertyChanged(input.Name)">
                         @foreach (var option in input.DropdownOptions)
                         {
                             <option value="@option">@option</option>
@@ -32,7 +32,7 @@
                     <input type="@input.Type.ToString().ToLower()" 
                         id="@input.Name" 
                         @bind="inputValues[input.Name]" 
-                        @bind:after="() => SetPropertyValue(input.Name, inputValues[input.Name])" 
+                        @bind:after="() => OnPropertyChanged(input.Name)" 
                         @oninput="@(e => OnPropertyChanged(input.Name))" placeholder="@input.Placeholder">
                 }
                 @if (input.ValidationRules.Any())
@@ -74,25 +74,18 @@
         var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
         var queryParams = QueryHelpers.ParseQuery(uri.Query);
 
-        if (!queryParams.TryGetValue("type", out var typeValue))
+        if (!queryParams.TryGetValue("qrcodetype", out var typeValue) || !Enum.TryParse(typeValue, true, out QRCodeType qrCodeType))
         {
-            typeValue = "OTP"; // Default to OTP if type is not specified
+            qrCodeType = QRCodeType.OTP; // Default to OTP if type is not specified or invalid
         }
 
-        switch (typeValue)
+        switch (qrCodeType)
         {
-            case "OTP":
+            case QRCodeType.OTP:
                 qrCode = new OTPQRCode(uri.ToString());
                 break;
-            case "TOTP":
-                qrCode = new OTPQRCode(uri.ToString());
-                break;
-            case "HOTP":
-                qrCode = new OTPQRCode(uri.ToString());
-                break;
-            // Add more cases for other types in the future
             default:
-                throw new NotSupportedException($"QR code type '{typeValue}' is not supported.");
+                throw new NotSupportedException($"QR code type '{qrCodeType}' is not supported.");
         }
 
         inputDefinitions = qrCode.GetInputDefinitions().ToList();
@@ -102,7 +95,6 @@
             if (queryParams.TryGetValue(input.Name, out var value))
             {
                 inputValues[input.Name] = value;
-                SetPropertyValue(input.Name, value);
             }
             else
             {
@@ -155,6 +147,9 @@
         var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
         var queryParams = QueryHelpers.ParseQuery(uri.Query).ToDictionary(kvp => kvp.Key, kvp => kvp.Value.ToString());
 
+        // Ensure QRCodeType is the first parameter
+        queryParams["qrcodetype"] = qrCode.GetType().Name;
+
         foreach (var input in inputDefinitions)
         {
             queryParams[input.Name] = GetPropertyValue(input.Name)?.ToString();
@@ -169,9 +164,12 @@
 
     private void OnPropertyChanged(string propertyName)
     {
-        Console.WriteLine($"{propertyName} Changed");
-        UpdateUrlParams();
-        GenerateQrCode();
+        if (inputValues.TryGetValue(propertyName, out var value))
+        {
+            SetPropertyValue(propertyName, value);
+            UpdateUrlParams();
+            GenerateQrCode();
+        }
     }
 
     private void UpdateQrCodePeriodically(object state)
@@ -215,25 +213,38 @@
         var property = qrCode.GetType().GetProperty(propertyName);
         if (property != null)
         {
-            if (property.PropertyType.IsEnum && value is string stringValue)
+            try
             {
-                if (Enum.TryParse(property.PropertyType, stringValue, true, out var enumValue))
+                if (property.PropertyType.IsEnum && value is string enumStringValue)
                 {
-                    property.SetValue(qrCode, enumValue);
+                    if (Enum.TryParse(property.PropertyType, enumStringValue, true, out var enumValue))
+                    {
+                        property.SetValue(qrCode, enumValue);
+                    }
+                    else
+                    {
+                        throw new ArgumentException($"Invalid value '{enumStringValue}' for enum type '{property.PropertyType.Name}'");
+                    }
+                }
+                else if (value is string stringValue)
+                {
+                    var convertedValue = Convert.ChangeType(stringValue, property.PropertyType);
+                    property.SetValue(qrCode, convertedValue);
                 }
                 else
                 {
-                    throw new ArgumentException($"Invalid value '{stringValue}' for enum type '{property.PropertyType.Name}'");
+                    throw new ArgumentException($"Value for property '{propertyName}' must be a string.");
                 }
             }
-            else if (value is StringValues stringValues)
+            catch (Exception ex)
             {
-                property.SetValue(qrCode, stringValues.ToString());
+                Console.WriteLine($"Error setting property '{propertyName}': {ex.Message}");
+                throw new ArgumentException($"Error setting property '{propertyName}': {ex.Message}", ex);
             }
-            else
-            {
-                property.SetValue(qrCode, value);
-            }
+        }
+        else
+        {
+            Console.WriteLine($"Property '{propertyName}' not found on type '{qrCode.GetType().Name}'");
         }
     }
 }

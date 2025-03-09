@@ -40,3 +40,14 @@ public abstract class BaseQRCode
         return $"QR Code Type: {GetType().Name}, Name: {Name}, Parameters: {string.Join(", ", Parameters)}";
     }
 }
+
+public enum QRCodeType
+{
+    OTP,
+    WiFi,
+    Email,
+    Phone,
+    SMS,
+    URL,
+    Text
+}

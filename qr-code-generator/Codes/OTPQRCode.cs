@@ -14,7 +14,7 @@ public class OTPQRCode : BaseQRCode
     [Required(ErrorMessage = "Secret is required.")]
     public string? Secret { get; set; }
 
-    public OTPType Type { get; set; } = OTPType.TOTP;
+    public OTPType OTPType { get; set; } = OTPType.TOTP;
     public Algorithm Algorithm { get; set; } = Algorithm.SHA1;
 
     [Range(1, int.MaxValue, ErrorMessage = "Digits must be greater than 0.")]
@@ -29,7 +29,6 @@ public class OTPQRCode : BaseQRCode
 
     public OTPQRCode(string uri) : base(uri)
     {
-
         if (string.IsNullOrWhiteSpace(uri))
         {
             return;
@@ -38,37 +37,36 @@ public class OTPQRCode : BaseQRCode
         var uriObj = new Uri(uri);
         var queryParams = System.Web.HttpUtility.ParseQueryString(uriObj.Query);
 
-        if (queryParams["applicationName"] != null)
+        foreach (var param in queryParams.AllKeys)
         {
-            Issuer = queryParams["applicationName"];
-        }
-        if (queryParams["otpSeed"] != null)
-        {
-            Secret = queryParams["otpSeed"];
-        }
-        if (queryParams["accountName"] != null)
-        {
-            AccountName = queryParams["accountName"];
-        }
-        if (queryParams["type"] != null && Enum.TryParse(queryParams["type"], out OTPType type))
-        {
-            Type = type;
-        }
-        if (queryParams["algorithm"] != null && Enum.TryParse(queryParams["algorithm"], out Algorithm algorithm))
-        {
-            Algorithm = algorithm;
-        }
-        if (queryParams["digits"] != null && int.TryParse(queryParams["digits"], out int digits))
-        {
-            Digits = digits;
-        }
-        if (queryParams["period"] != null && int.TryParse(queryParams["period"], out int period))
-        {
-            Period = period;
-        }
-        if (queryParams["counter"] != null && int.TryParse(queryParams["counter"], out int counter))
-        {
-            Counter = counter;
+            var property = GetType().GetProperty(param, BindingFlags.Public | BindingFlags.Instance);
+            if (property != null)
+            {
+                try
+                {
+                    var value = queryParams[param];
+                    if (property.PropertyType.IsEnum)
+                    {
+                        if (Enum.TryParse(property.PropertyType, value, true, out var enumValue))
+                        {
+                            property.SetValue(this, enumValue);
+                        }
+                        else
+                        {
+                            throw new ArgumentException($"Invalid value '{value}' for enum type '{property.PropertyType.Name}'");
+                        }
+                    }
+                    else
+                    {
+                        var convertedValue = Convert.ChangeType(value, property.PropertyType);
+                        property.SetValue(this, convertedValue);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    throw new ArgumentException($"Error setting property '{param}': {ex.Message}", ex);
+                }
+            }
         }
     }
 
@@ -112,7 +110,7 @@ public class OTPQRCode : BaseQRCode
             throw new InvalidOperationException("Invalid input");
         }
 
-        var typeString = Type.ToString().ToLower();
+        var typeString = OTPType.ToString().ToLower();
         var issuerEncoded = Uri.EscapeDataString(Issuer);
         var accountNameEncoded = AccountNameEncode();
         var secretEncoded = SecretEncode();
@@ -126,7 +124,7 @@ public class OTPQRCode : BaseQRCode
         uriBuilder.Append($"&digits={Digits}");
         uriBuilder.Append($"&period={Period}");
 
-        if (Type == OTPType.HOTP)
+        if (OTPType == OTPType.HOTP)
         {
             uriBuilder.Append($"&counter={Counter}");
         }
@@ -172,9 +170,9 @@ public class OTPQRCode : BaseQRCode
             },
             new()
             {
-                Name = nameof(Type),
+                Name = nameof(OTPType),
                 Type = InputType.Dropdown,
-                Placeholder = "Type",
+                Placeholder = "OTPType",
                 Description = "The type of OTP (TOTP or HOTP)",
                 DropdownOptions = ["TOTP", "HOTP"]
             },

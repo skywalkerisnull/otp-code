@@ -34,7 +34,7 @@ public class OTPQRCodeTests
             Algorithm = Algorithm.SHA1,
             Digits = 6,
             Period = 30,
-            Type = OTPType.HOTP,
+            OTPType = OTPType.HOTP,
             Counter = 1
         };
 
@@ -135,7 +135,7 @@ public class OTPQRCodeTests
             Issuer = "ACME Co",
             AccountName = "john.doe@email.com",
             Secret = "HXDMVJECJJWSRB3HWIZR4IFUGFTMXBOZ",
-            Type = OTPType.HOTP,
+            OTPType = OTPType.HOTP,
             Counter = -1
         };
 
