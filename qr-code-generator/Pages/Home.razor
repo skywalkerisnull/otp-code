@@ -2,6 +2,7 @@
 @using QRCoder
 @using Microsoft.AspNetCore.WebUtilities
 @using System.Reflection
+@using Microsoft.Extensions.Primitives
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
 
@@ -16,11 +17,24 @@
         {
             <div>
                 <label for="@input.Name">@input.Name:</label>
-                <input type="@input.Type.ToString().ToLower()" 
-                    id="@input.Name" 
-                    @bind="inputValues[input.Name]" 
-                    @bind:after="() => SetPropertyValue(input.Name, inputValues[input.Name])" 
-                    @oninput="@(e => OnPropertyChanged(input.Name))" placeholder="@input.Placeholder">
+                @if (input.Type == InputType.Dropdown)
+                {
+                    <select id="@input.Name" @bind="inputValues[input.Name]" 
+                        @bind:after="() => SetPropertyValue(input.Name, inputValues[input.Name])">
+                        @foreach (var option in input.DropdownOptions)
+                        {
+                            <option value="@option">@option</option>
+                        }
+                    </select>
+                }
+                else
+                {
+                    <input type="@input.Type.ToString().ToLower()" 
+                        id="@input.Name" 
+                        @bind="inputValues[input.Name]" 
+                        @bind:after="() => SetPropertyValue(input.Name, inputValues[input.Name])" 
+                        @oninput="@(e => OnPropertyChanged(input.Name))" placeholder="@input.Placeholder">
+                }
                 @if (input.ValidationRules.Any())
                 {
                     <div class="validation-rules">
@@ -70,6 +84,12 @@
             case "OTP":
                 qrCode = new OTPQRCode(uri.ToString());
                 break;
+            case "TOTP":
+                qrCode = new OTPQRCode(uri.ToString());
+                break;
+            case "HOTP":
+                qrCode = new OTPQRCode(uri.ToString());
+                break;
             // Add more cases for other types in the future
             default:
                 throw new NotSupportedException($"QR code type '{typeValue}' is not supported.");
@@ -79,8 +99,21 @@
 
         foreach (var input in inputDefinitions)
         {
-            var propertyValue = GetPropertyValue(input.Name)?.ToString();
-            inputValues[input.Name] = propertyValue ?? string.Empty;
+            if (queryParams.TryGetValue(input.Name, out var value))
+            {
+                inputValues[input.Name] = value;
+                SetPropertyValue(input.Name, value);
+            }
+            else
+            {
+                var propertyValue = GetPropertyValue(input.Name)?.ToString();
+                inputValues[input.Name] = propertyValue ?? string.Empty;
+            }
+        }
+
+        if (queryParams.TryGetValue("hideInputs", out var hideInputsValue))
+        {
+            hideInputs = bool.Parse(hideInputsValue);
         }
 
         GenerateQrCode();
@@ -120,7 +153,7 @@
     private void UpdateUrlParams()
     {
         var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
-        var queryParams = QueryHelpers.ParseQuery(uri.Query).ToDictionary(kvp => kvp.Key, kvp => (object?)kvp.Value.ToString());
+        var queryParams = QueryHelpers.ParseQuery(uri.Query).ToDictionary(kvp => kvp.Key, kvp => kvp.Value.ToString());
 
         foreach (var input in inputDefinitions)
         {
@@ -129,7 +162,7 @@
 
         queryParams["hideInputs"] = hideInputs.ToString();
 
-        var newUri = Navigation.GetUriWithQueryParameters(queryParams);
+        var newUri = QueryHelpers.AddQueryString(uri.GetLeftPart(UriPartial.Path), queryParams);
         JS.InvokeVoidAsync("history.pushState", null, "", newUri);
         Console.WriteLine($"Updated URL: {newUri}");
     }
@@ -180,6 +213,27 @@
     private void SetPropertyValue(string propertyName, object value)
     {
         var property = qrCode.GetType().GetProperty(propertyName);
-        property?.SetValue(qrCode, value);
+        if (property != null)
+        {
+            if (property.PropertyType.IsEnum && value is string stringValue)
+            {
+                if (Enum.TryParse(property.PropertyType, stringValue, true, out var enumValue))
+                {
+                    property.SetValue(qrCode, enumValue);
+                }
+                else
+                {
+                    throw new ArgumentException($"Invalid value '{stringValue}' for enum type '{property.PropertyType.Name}'");
+                }
+            }
+            else if (value is StringValues stringValues)
+            {
+                property.SetValue(qrCode, stringValues.ToString());
+            }
+            else
+            {
+                property.SetValue(qrCode, value);
+            }
+        }
     }
 }

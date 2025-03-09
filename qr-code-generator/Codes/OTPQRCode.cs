@@ -175,14 +175,16 @@ public class OTPQRCode : BaseQRCode
                 Name = nameof(Type),
                 Type = InputType.Dropdown,
                 Placeholder = "Type",
-                Description = "The type of OTP (TOTP or HOTP)"
+                Description = "The type of OTP (TOTP or HOTP)",
+                DropdownOptions = ["TOTP", "HOTP"]
             },
             new()
             {
                 Name = nameof(Algorithm),
                 Type = InputType.Dropdown,
                 Placeholder = "Algorithm",
-                Description = "The algorithm used for the OTP"
+                Description = "The algorithm used for the OTP",
+                DropdownOptions = ["SHA1", "SHA256", "SHA512" ]
             },
             new()
             {
@@ -198,13 +200,10 @@ public class OTPQRCode : BaseQRCode
             new()
             {
                 Name = nameof(Period),
-                Type = InputType.String,
+                Type = InputType.Dropdown,
                 Placeholder = "Period",
                 Description = "The period for the OTP",
-                ValidationRules = new List<ValidationRule>
-                {
-                    new() { Rule = "range", ErrorMessage = "Period must be greater than 0." }
-                }
+                DropdownOptions = ["15", "30", "60" ]
             },
             new()
             {
